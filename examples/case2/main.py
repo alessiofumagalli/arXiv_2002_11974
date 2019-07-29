@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sps
 import porepy as pp
 
 import sys; sys.path.insert(0, "../../src/")
@@ -10,66 +11,75 @@ def bc_flag(g, data, tol):
     b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
     b_face_centers = g.face_centers[:, b_faces]
 
-    # define outflow type boundary conditions
-    out_flow = b_face_centers[1] > 2 - tol
-
-    # define inflow type boundary conditions
-    in_flow = b_face_centers[1] < 0 + tol
+    b_dir_low = b_face_centers[0, :] > 1 - tol
+    b_dir_high = b_face_centers[0, :] < 0 + tol
 
     # define the labels and values for the boundary faces
     labels = np.array(["neu"] * b_faces.size)
+    labels[np.logical_or(b_dir_low, b_dir_high)] = "dir"
+
     bc_val = np.zeros(g.num_faces)
 
-    if g.dim == 2:
-        labels[in_flow + out_flow] = "dir"
-        bc_val[b_faces[in_flow]] = 0
-        bc_val[b_faces[out_flow]] = 1
-    else:
-        labels[:] = "dir"
-        bc_val[b_faces] = (b_face_centers[0, :] < 0.5).astype(np.float)
+    bc_val[b_faces[b_dir_low]] = 1
+    bc_val[b_faces[b_dir_high]] = 4
 
     return labels, bc_val
 
 # ------------------------------------------------------------------------------#
 
-def main():
+def source(cell_centers):
+    return np.zeros(cell_centers.shape[1])
 
-    h = 0.025
-    tol = 1e-6
-    mesh_args = {"mesh_size_frac": h}
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
-    folder = "case2"
+# ------------------------------------------------------------------------------#
 
-    # Define a fracture network in 2d
-    file_name = "network.csv"
+def create_gb(file_name, mesh_size):
+    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
     network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain)
 
+    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+
     # Generate a mixed-dimensional mesh
-    gb = network.mesh(mesh_args)
+    return network.mesh(mesh_kwargs)
+
+# ------------------------------------------------------------------------------#
+
+def main():
+
+    mesh_size = np.power(2., -3)
+    tol = 1e-6
+    case = "case1"
+
+    # Define a fracture network in 2d
+    gb = create_gb("network.csv", mesh_size)
+    #pp.coarsening.coarsen(gb, "by_volume")
+    gb.set_porepy_keywords()
 
     # the flow problem
     param = {
-        "domain": gb.bounding_box(as_dict=True),
         "tol": tol,
         "k": 1,
-        "aperture": 1e-2, "kf_t": 1e2, "kf_n": 1e2,
+        "aperture": 1e-2,
+        "kf_t": 1e2, "kf_n": 1e2,
     }
 
-    # declare the flow problem and the multiscale solver
-    flow = Flow(gb, folder, tol)
+    # exporter
+    save = pp.Exporter(gb, case, folder="solution")
+    save_vars = ["pressure", "P0_darcy_flux"]
 
-    # set the data
-    flow.data(param, bc_flag)
+    # -- flow -- #
+    flow = Flow(gb)
+    flow.set_data(param, bc_flag, source)
 
     # create the matrix for the Darcy problem
-    A, b, block_dof, full_dof = flow.matrix_rhs()
+    A, b = flow.matrix_rhs()
 
     # solve the problem
-    x = flow.solve(A, b)
+    x = sps.linalg.spsolve(A, b)
 
     # solve the problem
-    flow.extract(x, block_dof, full_dof)
-    flow.export()
+    flow.extract(x)
+
+    save.write_vtk(save_vars)
 
 # ------------------------------------------------------------------------------#
 

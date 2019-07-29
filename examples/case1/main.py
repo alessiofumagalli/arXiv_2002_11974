@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sps
 import porepy as pp
 
 import sys; sys.path.insert(0, "../../src/")
@@ -32,44 +33,59 @@ def bc_flag(g, data, tol):
 
 # ------------------------------------------------------------------------------#
 
-def main():
+def source(cell_centers):
+    return np.zeros(cell_centers.shape[1])
 
-    h = 0.025
-    tol = 1e-6
-    mesh_args = {"mesh_size_frac": h}
+# ------------------------------------------------------------------------------#
+
+def create_gb(file_name, mesh_size):
     domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
-    folder = "case1"
-
-    # Define a fracture network in 2d
-    file_name = "network.csv"
     network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain)
 
+    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
+
     # Generate a mixed-dimensional mesh
-    gb = network.mesh(mesh_args)
+    return network.mesh(mesh_kwargs)
+
+# ------------------------------------------------------------------------------#
+
+def main():
+
+    mesh_size = np.power(2., -3)
+    tol = 1e-6
+    case = "case1"
+
+    # Define a fracture network in 2d
+    gb = create_gb("network.csv", mesh_size)
+    #pp.coarsening.coarsen(gb, "by_volume")
+    gb.set_porepy_keywords()
 
     # the flow problem
     param = {
-        "domain": gb.bounding_box(as_dict=True),
         "tol": tol,
         "k": 1,
-        "aperture": 1e-2, "kf_t": 1e2, "kf_n": 1e2,
+        "aperture": 1e-2,
+        "kf_t": 1e2, "kf_n": 1e2,
     }
 
-    # declare the flow problem and the multiscale solver
-    flow = Flow(gb, folder, tol)
+    # exporter
+    save = pp.Exporter(gb, case, folder="solution")
+    save_vars = ["pressure", "P0_darcy_flux"]
 
-    # set the data
-    flow.data(param, bc_flag)
+    # -- flow -- #
+    flow = Flow(gb)
+    flow.set_data(param, bc_flag, source)
 
     # create the matrix for the Darcy problem
-    A, b, block_dof, full_dof = flow.matrix_rhs()
+    A, b = flow.matrix_rhs()
 
     # solve the problem
-    x = flow.solve(A, b)
+    x = sps.linalg.spsolve(A, b)
 
     # solve the problem
-    flow.extract(x, block_dof, full_dof)
-    flow.export()
+    flow.extract(x)
+
+    save.write_vtk(save_vars)
 
 # ------------------------------------------------------------------------------#
 
