@@ -9,8 +9,8 @@ class Spe10(object):
 # ------------------------------------------------------------------------------#
 
     def __init__(self, layers):
-        #self.full_shape = (60, 220, 85)##############################
-        self.full_shape = (60, 50, 85)
+        self.full_shape = (60, 220, 85)
+        #self.full_shape = (60, 50, 85)
         self.full_physdims = (365.76, 670.56, 51.816)
 
         self.layers = np.sort(np.atleast_1d(layers))
@@ -56,8 +56,8 @@ class Spe10(object):
         layers_id = np.empty(shape)
 
         for pos, layer in enumerate(self.layers):
-            #perm_file = perm_folder + str(layer) + ".tar.gz"###################
-            perm_file = perm_folder + "small_0.csv"
+            perm_file = perm_folder + str(layer) + ".tar.gz"
+            #perm_file = perm_folder + "small_0.csv"
             perm_layer = np.loadtxt(perm_file, delimiter=",")
             perm_xx[:, pos] = perm_layer[:, 0]
             perm_yy[:, pos] = perm_layer[:, 1]
