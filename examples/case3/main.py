@@ -39,12 +39,11 @@ def source(cell_centers):
 # ------------------------------------------------------------------------------#
 
 
-def main():
+def main(selected_layers):
 
     tol = 1e-6
     case = "case3"
 
-    selected_layers = np.arange(1) #np.arange(85)
     spe10 = Spe10(selected_layers)
 
     perm_folder = "../../geometry/spe10/perm/"
@@ -58,7 +57,10 @@ def main():
     param.update(spe10.perm_as_dict())
 
     # exporter
-    save = pp.Exporter(spe10.gb, case, folder="solution")
+    folder = "solution"
+    if selected_layers.size == 1:
+        folder += "_" + str(selected_layers)
+    save = pp.Exporter(spe10.gb, case, folder=folder)
     save_vars = ["pressure", "P0_darcy_flux"]
 
     # -- flow -- #
@@ -80,4 +82,5 @@ def main():
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    main()
+    selected_layers = [35] #np.arange(3) #np.arange(85)
+    main(selected_layers)
