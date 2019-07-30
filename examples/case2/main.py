@@ -3,7 +3,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 import sys; sys.path.insert(0, "../../src/")
-from discretization import Flow
+from flow import Flow
 
 # ------------------------------------------------------------------------------#
 
