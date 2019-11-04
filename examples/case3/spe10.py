@@ -45,7 +45,7 @@ class Spe10(object):
 
         # it's only one grid but the solver is build on a gb
         self.gb = pp.meshing.grid_list_to_grid_bucket([g])
-        self.gb.set_porepy_keywords()
+        self.gb.add_porepy_props()
 
 # ------------------------------------------------------------------------------#
 
@@ -80,13 +80,13 @@ class Spe10(object):
 
         dim = self.gb.dim_max()
         if dim == 2:
-            perm = pp.SecondOrderTensor(dim, kxx=self.perm[:, 0],
-                                             kyy=self.perm[:, 1],
-                                             kzz=1)
+            perm = pp.SecondOrderTensor(kxx=self.perm[:, 0],
+                                        kyy=self.perm[:, 1],
+                                        kzz=1)
         else:
-            perm = pp.SecondOrderTensor(dim, kxx=self.perm[:, 0],
-                                             kyy=self.perm[:, 1],
-                                             kzz=self.perm[:, 2])
+            perm = pp.SecondOrderTensor(kxx=self.perm[:, 0],
+                                        kyy=self.perm[:, 1],
+                                        kzz=self.perm[:, 2])
 
         matrix = pp.coarsening.tpfa_matrix(self.gb, perm)
         partition = pp.coarsening.create_partition(matrix, self.gb, cdepth=cdepth)

@@ -57,9 +57,7 @@ def main(selected_layers):
     param.update(spe10.perm_as_dict())
 
     # exporter
-    folder = "solution"
-    if selected_layers.size == 1:
-        folder += "_" + str(selected_layers)
+    folder = "solution_" + np.array2string(selected_layers, separator="_")[1:-1]
     save = pp.Exporter(spe10.gb, case, folder=folder)
     save_vars = ["pressure", "P0_darcy_flux"]
 
@@ -82,5 +80,5 @@ def main(selected_layers):
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    selected_layers = [35] #np.arange(3) #np.arange(85)
+    selected_layers = np.array([35]) #np.arange(3) #np.arange(85)
     main(selected_layers)
