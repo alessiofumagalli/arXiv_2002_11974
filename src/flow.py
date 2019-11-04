@@ -1,4 +1,3 @@
-import scipy.sparse as sps
 import numpy as np
 import porepy as pp
 
@@ -39,7 +38,8 @@ class Flow(object):
     def set_data(self, data, bc_flag, source):
         self.data = data
 
-        for g, d in self.gb:
+        for g, d in self.gb.nodes():
+
             param = {}
 
             unity = np.ones(g.num_cells)
@@ -48,30 +48,28 @@ class Flow(object):
 
             d["is_tangential"] = True
             d["tol"] = data["tol"]
+            aperture = np.power(data["aperture"], self.gb.dim_max() - g.dim) * unity
 
             # assign permeability
             if g.dim < self.gb.dim_max():
-                kxx = data["kf_t"] * unity
-                perm = pp.SecondOrderTensor(1, kxx=kxx, kyy=1, kzz=1)
-                aperture = data["aperture"] * unity
-
+                k_t = d.get("k_t", None)
+                if k_t is None:
+                    k_t = data["k_t"]
+                perm = pp.SecondOrderTensor(kxx=k_t * aperture, kyy=1, kzz=1)
             else:
                 # check if the permeability is isotropic or not
                 k = data.get("k", None)
                 if k is not None:
-                    kxx, kyy, kzz = k * unity, k * unity, k * unity
+                    kxx, kyy, kzz = [k * unity] * 3
                 else:
-                    kxx, kyy, kzz = data["kxx"], data["kyy"], data["kzz"]
+                    kxx, kyy, kzz = data["kxx"] * unity, data["kyy"] * unity, data["kzz"] * unity
                 if g.dim == 2:
-                    perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kzz=1)
+                    perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kzz=1)
                 else:
-                    perm = pp.SecondOrderTensor(g.dim, kxx=kxx, kyy=kyy, kzz=kzz)
-                aperture = unity
+                    perm = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kzz=kzz)
 
 
             param["second_order_tensor"] = perm
-            param["aperture"] = aperture
-
             param["source"] = g.cell_volumes * aperture * source(g.cell_centers)
 
             # Boundaries
@@ -84,41 +82,38 @@ class Flow(object):
                 param["bc"] = pp.BoundaryCondition(g, empty, empty)
 
             param["bc_values"] = bc_val
+            pp.initialize_data(g, d, self.model, param)
 
-            d[pp.PARAMETERS].update(pp.Parameters(g, self.model, param))
 
         for e, d in self.gb.edges():
-            g_l = self.gb.nodes_of_edge(e)[0]
-
             mg = d["mortar_grid"]
-            check_P = mg.slave_to_mortar_avg()
+            _, gh = self.gb.nodes_of_edge(e)
 
-            aperture = self.gb.node_props(g_l, pp.PARAMETERS)[self.model]["aperture"]
-            gamma = check_P * aperture
-            kn = data["kf_n"] * np.ones(mg.num_cells) / gamma
-            param = {"normal_diffusivity": kn}
+            k_n = d.get("k_n", None)
+            if k_n is None:
+                k_n = data["k_n"]
 
-            d[pp.PARAMETERS].update(pp.Parameters(e, self.model, param))
+            aperture_h = np.power(data["aperture"], self.gb.dim_max() - gh.dim)
+            param = {"normal_diffusivity": k_n * 2 / data["aperture"] * aperture_h}
+            pp.initialize_data(mg, d, self.model, param)
 
         # set now the discretization
 
         # set the discretization for the grids
         for g, d in self.gb:
-            d[pp.PRIMARY_VARIABLES].update({self.variable: {"cells": 1, "faces": 1}})
-            d[pp.DISCRETIZATION].update({self.variable: {self.discr_name: self.discr,
-                                                         self.source_name: self.source}})
+            d[pp.PRIMARY_VARIABLES] = {self.variable: {"cells": 1, "faces": 1}}
+            d[pp.DISCRETIZATION] = {self.variable: {self.discr_name: self.discr,
+                                                    self.source_name: self.source}}
 
         # define the interface terms to couple the grids
         for e, d in self.gb.edges():
             g_slave, g_master = self.gb.nodes_of_edge(e)
-            d[pp.PRIMARY_VARIABLES].update({self.mortar: {"cells": 1}})
-            d[pp.COUPLING_DISCRETIZATION].update({
+            d[pp.PRIMARY_VARIABLES] = {self.mortar: {"cells": 1}}
+            d[pp.COUPLING_DISCRETIZATION] = {
                 self.coupling_name: {
                     g_slave: (self.variable, self.discr_name),
                     g_master: (self.variable, self.discr_name),
-                    e: (self.mortar, self.coupling),
-                }
-            })
+                    e: (self.mortar, self.coupling)}}
 
         # assembler
         variables = [self.variable, self.mortar]
@@ -130,11 +125,12 @@ class Flow(object):
 
         # empty the matrices
         for g, d in self.gb:
-            d[pp.DISCRETIZATION_MATRICES].update({self.model: {}})
+            d[pp.DISCRETIZATION_MATRICES] = {self.model: {}}
 
         for e, d in self.gb.edges():
-            d[pp.DISCRETIZATION_MATRICES].update({self.model: {}})
+            d[pp.DISCRETIZATION_MATRICES] = {self.model: {}}
 
+        self.assembler.discretize()
         return self.assembler.assemble_matrix_rhs()
 
     # ------------------------------------------------------------------------------#
