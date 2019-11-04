@@ -50,10 +50,11 @@ def main(selected_layers):
     spe10.read_perm(perm_folder)
 
     # NOTE: the coarsen implementation is quite inefficient, used only to make a point
-    spe10.coarsen()
+    spe10.coarsen(cdepth=2, epsilon=0.75)
+    spe10.coarsen(cdepth=2, epsilon=0.75)
 
     # the flow problem
-    param = {"tol": tol}
+    param = {"tol": tol, "aperture": 1}
     param.update(spe10.perm_as_dict())
 
     # exporter

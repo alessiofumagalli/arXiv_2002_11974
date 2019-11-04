@@ -45,7 +45,6 @@ class Spe10(object):
 
         # it's only one grid but the solver is build on a gb
         self.gb = pp.meshing.grid_list_to_grid_bucket([g])
-        self.gb.add_porepy_props()
 
 # ------------------------------------------------------------------------------#
 
@@ -74,7 +73,7 @@ class Spe10(object):
 
 # ------------------------------------------------------------------------------#
 
-    def coarsen(self, cdepth=3):
+    def coarsen(self, **kwargs):
         if self.perm is None:
             raise ValueError("Permeability should not be set")
 
@@ -89,7 +88,7 @@ class Spe10(object):
                                         kzz=self.perm[:, 2])
 
         matrix = pp.coarsening.tpfa_matrix(self.gb, perm)
-        partition = pp.coarsening.create_partition(matrix, self.gb, cdepth=cdepth)
+        partition = pp.coarsening.create_partition(matrix, self.gb, **kwargs)
         pp.coarsening.generate_coarse_grid(self.gb, partition)
 
         # we need to map the permeability and layer id according to a possibile coarsening
