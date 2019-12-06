@@ -98,7 +98,11 @@ class Spe10(object):
             layers_id = np.zeros(perm.shape[0])
 
             for idx in np.arange(perm.shape[0]):
-                perm[idx] = hmean(self.perm[cell_map == idx])
+                xmean = kwargs.get("mean", "hmean")
+                if xmean == "hmean":
+                    perm[idx] = hmean(self.perm[cell_map == idx])
+                elif xmean == "mean":
+                    perm[idx] = np.mean(self.perm[cell_map == idx])
                 layers_id[idx] = np.mean(self.layers_id[cell_map == idx])
 
         self.perm = perm

@@ -4,6 +4,7 @@ import porepy as pp
 
 import sys; sys.path.insert(0, "../../src/")
 from flow import Flow
+from flow_tpfa import FlowTpfa
 
 from spe10 import Spe10
 
@@ -38,6 +39,42 @@ def source(cell_centers):
 
 # ------------------------------------------------------------------------------#
 
+def main_reference(selected_layers):
+
+    tol = 1e-6
+    case = "case3"
+
+    spe10 = Spe10(selected_layers)
+
+    perm_folder = "../../geometry/spe10/perm/"
+    spe10.read_perm(perm_folder)
+
+    # the flow problem
+    param = {"tol": tol, "aperture": 1}
+    param.update(spe10.perm_as_dict())
+
+    # exporter
+    folder = "reference_solution_" + np.array2string(selected_layers, separator="_")[1:-1]
+    save = pp.Exporter(spe10.gb, case, folder=folder)
+    save_vars = ["pressure", "P0_darcy_flux"]
+
+    # -- flow -- #
+    flow = FlowTpfa(spe10.gb)
+    flow.set_data(param, bc_flag, source)
+
+    # create the matrix for the Darcy problem
+    A, b = flow.matrix_rhs()
+
+    # solve the problem
+    x = sps.linalg.spsolve(A, b)
+
+    # solve the problem
+    flow.extract(x)
+
+    # export the variables
+    save.write_vtk(save_vars + spe10.save_perm())
+
+# ------------------------------------------------------------------------------#
 
 def main(selected_layers):
 
@@ -50,8 +87,8 @@ def main(selected_layers):
     spe10.read_perm(perm_folder)
 
     # NOTE: the coarsen implementation is quite inefficient, used only to make a point
-    spe10.coarsen(cdepth=2, epsilon=0.75)
-    spe10.coarsen(cdepth=2, epsilon=0.75)
+    spe10.coarsen(cdepth=2, epsilon=0.5, mean="mean")
+    #spe10.coarsen(cdepth=2, epsilon=0.75)
 
     # the flow problem
     param = {"tol": tol, "aperture": 1}
@@ -82,4 +119,7 @@ def main(selected_layers):
 
 if __name__ == "__main__":
     selected_layers = np.array([35]) #np.arange(3) #np.arange(85)
+
+    # -- run the code -- #
+    #main_reference(selected_layers)
     main(selected_layers)
