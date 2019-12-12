@@ -1,78 +1,32 @@
 import numpy as np
 import scipy.sparse as sps
+import matplotlib.pyplot as plt
+
 import porepy as pp
+
+from data import *
 
 import sys; sys.path.insert(0, "../../src/")
 from flow import Flow
+from import_grid import import_gb
 
 # ------------------------------------------------------------------------------#
 
-def bc_flag(g, data, tol):
-    b_faces = g.tags["domain_boundary_faces"].nonzero()[0]
-    b_face_centers = g.face_centers[:, b_faces]
+def main(name, gb, coarse=False):
 
-    # define outflow type boundary conditions
-    out_flow = b_face_centers[1] > 2 - tol
-
-    # define inflow type boundary conditions
-    in_flow = b_face_centers[1] < 0 + tol
-
-    # define the labels and values for the boundary faces
-    labels = np.array(["neu"] * b_faces.size)
-    bc_val = np.zeros(g.num_faces)
-
-    if g.dim == 2:
-        labels[in_flow + out_flow] = "dir"
-        bc_val[b_faces[in_flow]] = 0
-        bc_val[b_faces[out_flow]] = 1
-    else:
-        labels[:] = "dir"
-        bc_val[b_faces] = (b_face_centers[0, :] < 0.5).astype(np.float)
-
-    return labels, bc_val
-
-# ------------------------------------------------------------------------------#
-
-def source(cell_centers):
-    return np.zeros(cell_centers.shape[1])
-
-# ------------------------------------------------------------------------------#
-
-def create_gb(file_name, mesh_size):
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 2}
-    network = pp.fracture_importer.network_2d_from_csv(file_name, domain=domain)
-
-    mesh_kwargs = {"mesh_size_frac": mesh_size, "mesh_size_min": mesh_size / 20}
-
-    # Generate a mixed-dimensional mesh
-    return network.mesh(mesh_kwargs)
-
-# ------------------------------------------------------------------------------#
-
-def main():
-
-    mesh_size = np.power(2., -3)
-    tol = 1e-6
     case = "case1"
-
-    # Define a fracture network in 2d
-    gb = create_gb("network.csv", mesh_size)
-    #pp.coarsening.coarsen(gb, "by_volume")
-    gb.set_porepy_keywords()
+    if coarse:
+        pp.coarsening.coarsen(gb, "by_volume")
 
     # the flow problem
     param = {
         "tol": tol,
         "k": 1,
-        "aperture": 1e-2,
-        "kf_t": 1e2, "kf_n": 1e2,
+        "aperture": 1e-4,
     }
+    set_flag(gb, tol)
 
-    # exporter
-    save = pp.Exporter(gb, case, folder="solution")
-    save_vars = ["pressure", "P0_darcy_flux"]
-
-    # -- flow -- #
+    # ---- flow ---- #
     flow = Flow(gb)
     flow.set_data(param, bc_flag, source)
 
@@ -85,9 +39,26 @@ def main():
     # solve the problem
     flow.extract(x)
 
+    # output the solution
+    save = pp.Exporter(gb, case, folder="solution_"+name)
+    save_vars = ["pressure", "P0_darcy_flux"]
     save.write_vtk(save_vars)
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    main()
+    tol = 1e-6
+    coarse = True
+
+    # ---- Simplex grid ---- #
+    #mesh_size = np.power(2., -3)
+    #file_name = "network_simple.csv"
+    #gb = create_gb(file_name, mesh_size)
+
+    #main("simplex", gb, coarse)
+
+    # ---- Cartesian cut grid ---- #
+    folder = "../../geometry/mesh_test_porepy/meshcondue_new/"
+    gb = import_gb(folder, 2)
+
+    main("cartesian_due", gb, coarse)

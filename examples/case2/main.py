@@ -1,33 +1,49 @@
+import os
 import numpy as np
 import scipy.sparse as sps
-import matplotlib.pyplot as plt
+from scipy.io import mmwrite
 
 import porepy as pp
 
-from data import *
-
 import sys; sys.path.insert(0, "../../src/")
 from flow import Flow
-from import_grid import import_gb
+from flow_tpfa import FlowTpfa
+
+from spe10 import Spe10
+from data import *
 
 # ------------------------------------------------------------------------------#
 
-def main(name, gb, coarse=False):
+def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
 
-    case = "case1"
-    if coarse:
-        pp.coarsening.coarsen(gb, "by_volume")
+    tol = 1e-6
+    case = "case3"
+
+    selected_layers = np.atleast_1d(selected_layers)
+    spe10 = Spe10(selected_layers)
+
+    perm_folder = "../../geometry/spe10/perm/"
+    spe10.read_perm(perm_folder)
+    save_vars = ["pressure", "P0_darcy_flux"]
+
+    # NOTE: the coarsen implementation is quite inefficient, used only to make a point
+    discr = Flow
+    if "mean" in what:
+        spe10.coarsen(cdepth=2, epsilon=0.25, mean=what)
+    elif what == "reference":
+        discr = FlowTpfa
 
     # the flow problem
-    param = {
-        "tol": tol,
-        "k": 1,
-        "aperture": 1e-4,
-    }
-    set_flag(gb, tol)
+    param = {"tol": tol, "aperture": 1}
+    param.update(spe10.perm_as_dict())
 
-    # ---- flow ---- #
-    flow = Flow(gb)
+    # exporter
+    folder = what + "_" + np.array2string(selected_layers, separator="_")[1:-1]
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    # -- flow -- #
+    flow = discr(spe10.gb)
     flow.set_data(param, bc_flag, source)
 
     # create the matrix for the Darcy problem
@@ -39,26 +55,100 @@ def main(name, gb, coarse=False):
     # solve the problem
     flow.extract(x)
 
-    # output the solution
-    save = pp.Exporter(gb, case, folder="solution_"+name)
-    save_vars = ["pressure", "P0_darcy_flux"]
-    save.write_vtk(save_vars)
+    # export the matrix
+    mmwrite(folder + "/matrix.mtx", A)
+
+    # export extra data
+    with open(folder + "/data.txt", "w") as f:
+        f.write("num_faces " + str(spe10.gb.num_faces()) + "\n")
+        f.write("num_cells " + str(spe10.gb.num_cells()) + "\n")
+        f.write("diam " + str(spe10.gb.diameter()) + "\n")
+
+    # export the pressure on the original mesh
+    p = spe10.map_back("pressure")
+    np.savetxt(folder + "/pressure.txt", p)
+
+    # export the cell volumes of the original mesh
+    cell_volumes = spe10.map_back("cell_volumes")
+    np.savetxt(folder + "/cell_volumes.txt", cell_volumes)
+
+    # save the file with the stabilization
+    if discr is Flow:
+        os.system("mv stabilization.csv " + folder + "/")
+        norm_A, norm_S, ratio = np.loadtxt(folder + "/stabilization.csv", delimiter=",").T
+        for g, d in spe10.gb:
+            d[pp.STATE]["norm_A"] = norm_A
+            d[pp.STATE]["norm_S"] = norm_S
+            d[pp.STATE]["ratio"] = ratio
+        save_vars += ["norm_A", "norm_S", "ratio"]
+
+    # compute the error between the reference solution and the current one
+    if folder_ref is not None and gb_ref is not None:
+        p_ref = np.loadtxt(folder_ref + "/pressure.txt")
+        for g, d in gb_ref:
+            d[pp.STATE]["error"] = np.abs(p - p_ref)
+            d[pp.STATE]["error_rel"] = np.abs(p - p_ref) / p_ref
+            d[pp.STATE]["error_l2"] = np.power(p - p_ref, 2) * g.cell_volumes
+            d[pp.STATE]["error_l2_rel"] = np.power(p - p_ref, 2) * g.cell_volumes / p_ref
+        save = pp.Exporter(gb_ref, case+"_error", folder=folder)
+        save.write_vtk(["error", "error_l2", "error_rel", "error_l2_rel"])
+
+    # export the variables
+    save = pp.Exporter(spe10.gb, case, folder=folder)
+    save.write_vtk(save_vars + spe10.save_perm())
+
+    return folder, spe10.gb
+
+# ------------------------------------------------------------------------------#
+
+def run_all(selected_layers):
+    selected_layers = np.atleast_1d(selected_layers)
+
+    # -- reference solution TPFA -- #
+    folder_ref, gb_ref = main(selected_layers, "reference", FlowTpfa)
+
+    # -- coarsening with MVEM -- #
+    folder_mvem_mean, _ = main(selected_layers, "mvem_mean", Flow, gb_ref, folder_ref)
+    folder_mvem_hmean, _ = main(selected_layers, "mvem_hmean", Flow, gb_ref, folder_ref)
+
+    # -- coarsening with TPFA -- #
+    folder_tpfa_mean, _ = main(selected_layers, "tpfa_mean", FlowTpfa, gb_ref, folder_ref)
+    folder_tpfa_hmean, _ = main(selected_layers, "tpfa_hmean", FlowTpfa, gb_ref, folder_ref)
+
+    # -- load data for the post-process -- #
+    cell_volumes = np.loadtxt(folder_ref + "/cell_volumes.txt")
+
+    p_ref = np.loadtxt(folder_ref + "/pressure.txt")
+
+    p_mvem_mean = np.loadtxt(folder_mvem_mean + "/pressure.txt")
+    p_mvem_hmean = np.loadtxt(folder_mvem_hmean + "/pressure.txt")
+
+    p_tpfa_mean = np.loadtxt(folder_tpfa_mean + "/pressure.txt")
+    p_tpfa_hmean = np.loadtxt(folder_tpfa_hmean + "/pressure.txt")
+
+    # -- compute the errors -- #
+    norm_p_ref = np.sqrt(np.sum(np.power(p_ref, 2) * cell_volumes))
+
+    err_p_mvem_mean = np.sqrt(np.sum(np.power(p_ref - p_mvem_mean, 2) * cell_volumes))/norm_p_ref
+    err_p_mvem_hmean = np.sqrt(np.sum(np.power(p_ref - p_mvem_hmean, 2) * cell_volumes))/norm_p_ref
+
+    err_p_tpfa_mean = np.sqrt(np.sum(np.power(p_ref - p_tpfa_mean, 2) * cell_volumes))/norm_p_ref
+    err_p_tpfa_hmean = np.sqrt(np.sum(np.power(p_ref - p_tpfa_hmean, 2) * cell_volumes))/norm_p_ref
+
+    # export error
+    fname = "error_" + np.array2string(selected_layers, separator="_")[1:-1] + ".txt"
+    with open(fname, "w") as f:
+        f.write("err pressure mvem mean " + str(err_p_mvem_mean) + "\n")
+        f.write("err pressure mvem hmean " + str(err_p_mvem_hmean) + "\n")
+        f.write("err pressure tpfa mean " + str(err_p_tpfa_mean) + "\n")
+        f.write("err pressure tpfa hmean " + str(err_p_tpfa_hmean) + "\n")
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
-    tol = 1e-6
-    coarse = True
 
-    # ---- Simplex grid ---- #
-    #mesh_size = np.power(2., -3)
-    #file_name = "network_simple.csv"
-    #gb = create_gb(file_name, mesh_size)
+    # -- layer 3 -- #
+    run_all(3)
 
-    #main("simplex", gb, coarse)
-
-    # ---- Cartesian cut grid ---- #
-    folder = "../../geometry/mesh_test_porepy/meshcondue_new/"
-    gb = import_gb(folder, 2)
-
-    main("cartesian_due", gb, coarse)
+    # -- layer 35 -- #
+    run_all(35)
