@@ -136,8 +136,9 @@ class FlowTpfa(object):
     def extract(self, x):
         self.assembler.distribute_variable(x)
 
-        for _, d in self.gb:
+        for g, d in self.gb:
             d[pp.STATE][self.pressure] = d[pp.STATE][self.variable]
+            d[pp.STATE]["cell_volumes"] = g.cell_volumes
 
         pp.fvutils.compute_darcy_flux(self.gb, keyword=self.model, d_name=self.flux,
                                       p_name=self.pressure, lam_name=self.mortar)

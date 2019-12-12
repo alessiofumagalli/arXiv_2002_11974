@@ -9,7 +9,7 @@ class My_MVEM(pp.MVEM):
 
 
     def discretize(self, g, data):
-        self.file_name = "grid" + str(g.dim) + ".csv"
+        self.file_name = "stabilization.csv"
         open(self.file_name, "w").close()
         super(My_MVEM, self).discretize(g, data)
 

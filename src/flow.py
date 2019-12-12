@@ -141,6 +141,7 @@ class Flow(object):
             var = d[pp.STATE][self.variable]
             d[pp.STATE][self.pressure] = self.discr.extract_pressure(g, var, d)
             d[pp.STATE][self.flux] = self.discr.extract_flux(g, var, d)
+            d[pp.STATE]["cell_volumes"] = g.cell_volumes
 
         # export the P0 flux reconstruction
         pp.project_flux(self.gb, self.discr, self.flux, self.P0_flux, self.mortar)
