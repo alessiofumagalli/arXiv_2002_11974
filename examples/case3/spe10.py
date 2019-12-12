@@ -10,17 +10,20 @@ class Spe10(object):
 
     def __init__(self, layers):
         self.full_shape = (60, 220, 85)
-        #self.full_shape = (60, 50, 85)
         self.full_physdims = (365.76, 670.56, 51.816)
 
         self.layers = np.sort(np.atleast_1d(layers))
 
+        self.N = 0
+        self.n = 0
         self._compute_size()
+
+        self.gb = None
         self._create_gb()
 
         self.perm = None
         self.layers_id = None
-        self.partition = np.arange(self.N)
+        self.partition = None
 
 # ------------------------------------------------------------------------------#
 
@@ -88,25 +91,39 @@ class Spe10(object):
                                         kzz=self.perm[:, 2])
 
         matrix = pp.coarsening.tpfa_matrix(self.gb, perm)
-        partition = pp.coarsening.create_partition(matrix, self.gb, **kwargs)
-        pp.coarsening.generate_coarse_grid(self.gb, partition)
+        self.partition = pp.coarsening.create_partition(matrix, self.gb, **kwargs)
+        pp.coarsening.generate_coarse_grid(self.gb, self.partition)
 
         # we need to map the permeability and layer id according to a possibile coarsening
         for g, _ in self.gb:
-            cell_map = partition[g][1]
+            cell_map = self.partition[g][1]
             perm = np.zeros((np.amax(cell_map) + 1, 3))
             layers_id = np.zeros(perm.shape[0])
 
             for idx in np.arange(perm.shape[0]):
                 xmean = kwargs.get("mean", "hmean")
-                if xmean == "hmean":
+                if "hmean" in xmean :
                     perm[idx] = hmean(self.perm[cell_map == idx])
-                elif xmean == "mean":
+                else:
                     perm[idx] = np.mean(self.perm[cell_map == idx])
                 layers_id[idx] = np.mean(self.layers_id[cell_map == idx])
 
         self.perm = perm
         self.layers_id = layers_id
+
+# ------------------------------------------------------------------------------#
+
+    def map_back(self, x_name):
+        # we assume only one grid
+        for g, d in self.gb:
+            if self.partition is None:
+                return d[pp.STATE][x_name]
+            else:
+                mask = self.partition[g][1]
+                if d[pp.STATE][x_name].ndim == 1:
+                    return d[pp.STATE][x_name][mask]
+                else:
+                    return d[pp.STATE][x_name][:, mask]
 
 # ------------------------------------------------------------------------------#
 
