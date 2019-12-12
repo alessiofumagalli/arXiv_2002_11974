@@ -51,14 +51,14 @@ if __name__ == "__main__":
     coarse = True
 
     # ---- Simplex grid ---- #
-    mesh_size = np.power(2., -3)
-    file_name = "network_simple.csv"
-    gb = create_gb(file_name, mesh_size)
+    #mesh_size = np.power(2., -3)
+    #file_name = "network_simple.csv"
+    #gb = create_gb(file_name, mesh_size)
 
-    main("simplex", gb, coarse)
+    #main("simplex", gb, coarse)
 
     # ---- Cartesian cut grid ---- #
-    folder = "../../geometry/mesh_test_porepy/meshconuna/"
-    gb = import_gb(folder, 2, num_frac=1)
+    folder = "../../geometry/mesh_test_porepy/meshcondue_new/"
+    gb = import_gb(folder, 2)
 
-    main("cartesian_cut", gb, coarse)
+    main("cartesian_due", gb, coarse)
