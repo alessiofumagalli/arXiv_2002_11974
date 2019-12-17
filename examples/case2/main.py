@@ -17,7 +17,7 @@ from data import *
 def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
 
     tol = 1e-6
-    case = "case3"
+    case = "case2"
 
     selected_layers = np.atleast_1d(selected_layers)
     spe10 = Spe10(selected_layers)
@@ -27,11 +27,8 @@ def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
     save_vars = ["pressure", "P0_darcy_flux"]
 
     # NOTE: the coarsen implementation is quite inefficient, used only to make a point
-    discr = Flow
     if "mean" in what:
         spe10.coarsen(cdepth=2, epsilon=0.25, mean=what)
-    elif what == "reference":
-        discr = FlowTpfa
 
     # the flow problem
     param = {"tol": tol, "aperture": 1}
@@ -43,7 +40,7 @@ def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
         os.makedirs(folder)
 
     # -- flow -- #
-    flow = discr(spe10.gb)
+    flow = discr(spe10.gb, folder)
     flow.set_data(param, bc_flag, source)
 
     # create the matrix for the Darcy problem
@@ -74,7 +71,6 @@ def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
 
     # save the file with the stabilization
     if discr is Flow:
-        os.system("mv stabilization.csv " + folder + "/")
         norm_A, norm_S, ratio = np.loadtxt(folder + "/stabilization.csv", delimiter=",").T
         for g, d in spe10.gb:
             d[pp.STATE]["norm_A"] = norm_A
@@ -94,7 +90,7 @@ def main(selected_layers, what, discr, gb_ref=None, folder_ref=None):
         save.write_vtk(["error", "error_l2", "error_rel", "error_l2_rel"])
 
     # export the variables
-    save = pp.Exporter(spe10.gb, case, folder=folder)
+    save = pp.Exporter(spe10.gb, case, folder=folder, binary=False)
     save.write_vtk(save_vars + spe10.save_perm())
 
     return folder, spe10.gb
