@@ -3,14 +3,14 @@ import porepy as pp
 
 class My_MVEM(pp.MVEM):
 
-    def __init__(self, keyword):
-        self.file_name = None
+    def __init__(self, keyword, folder):
+        self.file_name = folder + "/stabilization.csv"
+        open(self.file_name, "w").close()
+
         super(My_MVEM, self).__init__(keyword)
 
 
     def discretize(self, g, data):
-        self.file_name = "stabilization.csv"
-        open(self.file_name, "w").close()
         super(My_MVEM, self).discretize(g, data)
 
     def massHdiv(self, K, c_center, c_volume, f_centers, normals, sign, diam, weight=0):

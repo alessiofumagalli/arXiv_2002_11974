@@ -5,7 +5,7 @@ class FlowTpfa(object):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, gb, model="flow"):
+    def __init__(self, gb, flow, model="flow"):
 
         self.model = model
         self.gb = gb

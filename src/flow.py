@@ -7,7 +7,7 @@ class Flow(object):
 
     # ------------------------------------------------------------------------------#
 
-    def __init__(self, gb, model="flow"):
+    def __init__(self, gb, folder, model="flow"):
 
         self.model = model
         self.gb = gb
@@ -16,7 +16,7 @@ class Flow(object):
 
         # discretization operator name
         self.discr_name = self.model + "_flux"
-        self.discr = My_MVEM(self.model)
+        self.discr = My_MVEM(self.model, folder)
 
         self.coupling_name = self.discr_name + "_coupling"
         self.coupling = pp.RobinCoupling(self.model, self.discr)
