@@ -40,7 +40,8 @@ def source(cell_centers):
 
 # ------------------------------------------------------------------------------#
 
-def set_flag(gb, tol):
+def set_flag(gb):
+    tol = 1e-3
     # set the key for the low peremable fractures
     gb.add_node_props("is_low", "frac_num")
     for g, d in gb:
@@ -102,7 +103,6 @@ def set_flag(gb, tol):
         else:
             d["k_t"] = 1
 
-        d["k_t"] = 1e-4######################################################
 
     # we set know also the flag for the intersection, we need to go first through the
     # 0-dim grids and set there the is low and after to the edges
@@ -110,7 +110,6 @@ def set_flag(gb, tol):
     for _, d in gb.edges():
         d["is_low"] = False
         d["k_n"] = 1e4
-        d["k_n"] = 1e-4###########################
 
     for e, d in gb.edges():
         gl, gh = gb.nodes_of_edge(e)

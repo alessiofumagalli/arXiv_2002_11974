@@ -1,4 +1,5 @@
 import glob
+import warnings
 import os
 import numpy as np
 from scipy import sparse as sps
@@ -36,16 +37,10 @@ def import_grid(folder, fname, dim, **kwargs):
     data = cell_faces[2]
     cell_faces = sps.csc_matrix((data, (row, col)))
 
-    # load the volume
-    #fcell_volumes_root = kwargs.get("cell_volumes", "volumes")
-    #fcell_volumes = folder + "/" + fcell_volumes_root + fname + ".txt"
-    #cell_volumes = np.loadtxt(fcell_volumes, dtype=np.float).T
-
-    # I CENTRI DELLE CELLE DEVONO ESSERE CALCOLATI IN MANIERA SPECIALE
-
     # it's not really triangular grid but it's useful somewhere
     name = "TriangleGrid" if dim == 2 else "TensorGrid"
     g = pp.Grid(dim, nodes, face_nodes, cell_faces, name)
+    g.name.append(fname)
     g.compute_geometry()
 
     # load the point to local to global map
@@ -55,13 +50,14 @@ def import_grid(folder, fname, dim, **kwargs):
         g.global_point_ind = np.loadtxt(fglobal, dtype=np.int).T[-1]
     else:
         g.global_point_ind = np.arange(g.num_nodes) + 1
+        warnings.warn("Attention default global to local mapping used for grid\n" + str(g))
 
     return g
 
 def import_grid_0d(folder, fname, **kwargs):
 
     # load the node
-    fnodes_root = kwargs.get("nodes", "points")
+    fnodes_root = kwargs.get("nodes", "InterCellsCoord")
     fnodes = folder + "/" + fnodes_root + fname + ".txt"
     nodes = np.loadtxt(fnodes, dtype=np.float)
     nodes = np.atleast_2d(nodes).T
@@ -72,7 +68,7 @@ def import_grid_0d(folder, fname, **kwargs):
     g.compute_geometry()
 
     # load the point to local to global map
-    fglobal_root = kwargs.get("global", "global")
+    fglobal_root = kwargs.get("global", "InterCellsGlobalID")
     fglobal = folder + "/" + fglobal_root + fname + ".txt"
     g.global_point_ind = np.loadtxt(fglobal, dtype=np.int).T
 
@@ -102,11 +98,11 @@ def import_gb(folder, max_dim, **kwargs):
         grid_fracture.append(g)
 
     # intersection grids
-    fname_intersection = kwargs.get("intersection", "_intersection_")
+    fname_intersection = kwargs.get("intersection", "_")
     grid_intersection = []
 
     # check the number of intersections
-    fname = "/" + kwargs.get("nodes", "points") + fname_intersection + "*.txt"
+    fname = "/" + kwargs.get("nodes", "InterCellsCoord") + fname_intersection + "*.txt"
     num_int = len(glob.glob(folder + fname))
     print("there are " + str(num_int) + " intersections")
 
@@ -116,6 +112,8 @@ def import_gb(folder, max_dim, **kwargs):
         grid_intersection.append(g)
 
     grids = [grid_bulk, grid_fracture, grid_intersection]
+    #grids = [[], grid_fracture, []]#, grid_intersection]
     gb = pp.meshing.grid_list_to_grid_bucket(grids)
+    #pp.plot_grid(gb, alpha=0, info="cf")
 
     return gb

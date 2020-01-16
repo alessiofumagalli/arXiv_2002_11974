@@ -107,10 +107,6 @@ def run_all(selected_layers):
     folder_mvem_mean, _ = main(selected_layers, "mvem_mean", Flow, gb_ref, folder_ref)
     folder_mvem_hmean, _ = main(selected_layers, "mvem_hmean", Flow, gb_ref, folder_ref)
 
-    # -- coarsening with TPFA -- #
-    folder_tpfa_mean, _ = main(selected_layers, "tpfa_mean", FlowTpfa, gb_ref, folder_ref)
-    folder_tpfa_hmean, _ = main(selected_layers, "tpfa_hmean", FlowTpfa, gb_ref, folder_ref)
-
     # -- load data for the post-process -- #
     cell_volumes = np.loadtxt(folder_ref + "/cell_volumes.txt")
 
@@ -119,25 +115,17 @@ def run_all(selected_layers):
     p_mvem_mean = np.loadtxt(folder_mvem_mean + "/pressure.txt")
     p_mvem_hmean = np.loadtxt(folder_mvem_hmean + "/pressure.txt")
 
-    p_tpfa_mean = np.loadtxt(folder_tpfa_mean + "/pressure.txt")
-    p_tpfa_hmean = np.loadtxt(folder_tpfa_hmean + "/pressure.txt")
-
     # -- compute the errors -- #
     norm_p_ref = np.sqrt(np.sum(np.power(p_ref, 2) * cell_volumes))
 
     err_p_mvem_mean = np.sqrt(np.sum(np.power(p_ref - p_mvem_mean, 2) * cell_volumes))/norm_p_ref
     err_p_mvem_hmean = np.sqrt(np.sum(np.power(p_ref - p_mvem_hmean, 2) * cell_volumes))/norm_p_ref
 
-    err_p_tpfa_mean = np.sqrt(np.sum(np.power(p_ref - p_tpfa_mean, 2) * cell_volumes))/norm_p_ref
-    err_p_tpfa_hmean = np.sqrt(np.sum(np.power(p_ref - p_tpfa_hmean, 2) * cell_volumes))/norm_p_ref
-
     # export error
     fname = "error_" + np.array2string(selected_layers, separator="_")[1:-1] + ".txt"
     with open(fname, "w") as f:
         f.write("err pressure mvem mean " + str(err_p_mvem_mean) + "\n")
         f.write("err pressure mvem hmean " + str(err_p_mvem_hmean) + "\n")
-        f.write("err pressure tpfa mean " + str(err_p_tpfa_mean) + "\n")
-        f.write("err pressure tpfa hmean " + str(err_p_tpfa_hmean) + "\n")
 
 # ------------------------------------------------------------------------------#
 

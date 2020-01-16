@@ -11,6 +11,8 @@ from data import *
 import sys; sys.path.insert(0, "../../src/")
 from flow import Flow
 from import_grid import import_gb
+from simplexify import simplexify
+from decoarsify import decoarsify
 
 # ------------------------------------------------------------------------------#
 
@@ -18,8 +20,11 @@ def main(name, gb, coarse=False):
 
     tol = 1e-6
     case = "case1"
+
     if coarse:
-        pp.coarsening.coarsen(gb, "by_volume")
+        partition = pp.coarsening.create_aggregations(gb)
+        partition = pp.coarsening.reorder_partition(partition)
+        pp.coarsening.generate_coarse_grid(gb, partition)
 
     # the flow problem
     param = {
@@ -27,7 +32,7 @@ def main(name, gb, coarse=False):
         "k": 1,
         "aperture": 1e-4,
     }
-    set_flag(gb, tol)
+    set_flag(gb)
     save_vars = ["pressure", "P0_darcy_flux"]
     folder = "solution_" + name
     if not os.path.exists(folder):
@@ -66,42 +71,43 @@ def main(name, gb, coarse=False):
             d[pp.STATE]["norm_A"] = np.zeros(g.num_cells)
             d[pp.STATE]["norm_S"] = np.zeros(g.num_cells)
             d[pp.STATE]["ratio"] = np.zeros(g.num_cells)
+        d[pp.STATE]["cell_volumes"] = g.cell_volumes
 
-    save_vars += ["norm_A", "norm_S", "ratio"]
+    save_vars += ["norm_A", "norm_S", "ratio", "cell_volumes"]
+
+    if coarse:
+        gb = decoarsify(gb, partition, save_vars)
+
+    gb = simplexify(gb, save_vars)
 
     # output the solution
     save = pp.Exporter(gb, case, folder=folder, binary=False)
     save.write_vtk(save_vars)
-
-# ------------------------------------------------------------------------------#
-
-def run_all(refinement, coarse):
-
-        # ---- Simplex grid ---- #
-        #mesh_size = np.power(2., -3)
-        #file_name = "network_simple.csv"
-        #gb = create_gb(file_name, mesh_size)
-
-        #main("simplex", gb, coarse)
-
-        # ---- Cartesian cut grid ---- #
-        folder = "../../geometry/mesh_test_porepy/meshcondue_new/"
-        gb = import_gb(folder, 2)
-
-        main("cartesian_due", gb, coarse)
-
-        # ---- Voronoi ---- #
-
-        # ---- Simplified simplex grid ---- #
 
 
 # ------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
 
-    # num cells 1300, 4700, 18000
-    refinements = [0] #, 1, 2]
+    ## ---- Simplex grid ---- #
+    #mesh_size = np.power(2., -4)
+    #file_name = "network.csv"
+    #gb = create_gb(file_name, mesh_size)
+    #main("delaunay", gb, coarse=False)
 
-    for refinement in refinements:
-        #run_all(refinement, coarse=False)
-        run_all(refinement, coarse=True)
+    # ---- Cartesian cut grid ---- #
+    #folder = "../../geometry/tuttequante/"
+    #gb = import_gb(folder, 2)
+    #main("cut", gb, coarse=False)
+
+    ## ---- Cartesian coarsened cut grid ---- #
+    folder = "../../geometry/tuttequante/"
+    gb = import_gb(folder, 2)
+    main("cut_coarse", gb, coarse=True)
+
+    # ---- Voronoi grid ---- #
+    #folder = "../../geometry/balletto/"
+    #gb = import_gb(folder, 2)
+    #main("voronoi", gb, coarse=False)
+
+

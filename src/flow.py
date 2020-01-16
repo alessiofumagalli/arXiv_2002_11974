@@ -48,6 +48,7 @@ class Flow(object):
 
             d["is_tangential"] = True
             d["tol"] = data["tol"]
+            d["deviation_from_plane_tol"] = 5*1e-4
             aperture = np.power(data["aperture"], self.gb.dim_max() - g.dim) * unity
 
             # assign permeability
@@ -121,7 +122,7 @@ class Flow(object):
 
     # ------------------------------------------------------------------------------#
 
-    def matrix_rhs(self):
+    def matrix_rhs(self, **kwargs):
 
         # empty the matrices
         for g, d in self.gb:
