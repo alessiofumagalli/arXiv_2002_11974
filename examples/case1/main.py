@@ -22,7 +22,7 @@ def main(name, gb, coarse=False):
     case = "case1"
 
     if coarse:
-        partition = pp.coarsening.create_aggregations(gb)
+        partition = pp.coarsening.create_aggregations(gb, weight=0.5)
         partition = pp.coarsening.reorder_partition(partition)
         pp.coarsening.generate_coarse_grid(gb, partition)
 
@@ -75,13 +75,17 @@ def main(name, gb, coarse=False):
 
     save_vars += ["norm_A", "norm_S", "ratio", "cell_volumes"]
 
+    # output the solution
+    save = pp.Exporter(gb, case, folder=folder, binary=False)
+    save.write_vtk(save_vars)
+
     if coarse:
         gb = decoarsify(gb, partition, save_vars)
 
     gb = simplexify(gb, save_vars)
 
     # output the solution
-    save = pp.Exporter(gb, case, folder=folder, binary=False)
+    save = pp.Exporter(gb, case, folder=folder+"_simplexify", binary=False)
     save.write_vtk(save_vars)
 
 
@@ -89,25 +93,33 @@ def main(name, gb, coarse=False):
 
 if __name__ == "__main__":
 
-    ## ---- Simplex grid ---- #
-    #mesh_size = np.power(2., -4)
-    #file_name = "network.csv"
-    #gb = create_gb(file_name, mesh_size)
-    #main("delaunay", gb, coarse=False)
+    geometry = "../../geometry/"
 
-    # ---- Cartesian cut grid ---- #
-    #folder = "../../geometry/tuttequante/"
-    #gb = import_gb(folder, 2)
-    #main("cut", gb, coarse=False)
+    ## ---- Simplex grid ---- #
+    mesh_size = np.power(2., -4)
+    file_name = geometry + "case2_network.csv"
+    gb = create_gb(file_name, mesh_size)
+    main("delaunay", gb, coarse=False)
+
+    ## ---- Simplex coarsened grid ---- #
+    gb = create_gb(file_name, mesh_size)
+    main("delaunay_coarse", gb, coarse=True)
+
+
+    ## ---- Cartesian cut grid ---- #
+    folder = geometry + "case1_cut/"
+    gb = import_gb(folder, 2)
+    main("cut", gb, coarse=False)
 
     ## ---- Cartesian coarsened cut grid ---- #
-    folder = "../../geometry/tuttequante/"
     gb = import_gb(folder, 2)
     main("cut_coarse", gb, coarse=True)
 
     # ---- Voronoi grid ---- #
-    #folder = "../../geometry/balletto/"
-    #gb = import_gb(folder, 2)
-    #main("voronoi", gb, coarse=False)
+    folder = geometry + "case1_voronoi/"
+    gb = import_gb(folder, 2)
+    main("voronoi", gb, coarse=False)
 
-
+    # ---- Voronoi grid ---- #
+    gb = import_gb(folder, 2)
+    main("voronoi_coarse", gb, coarse=True)
