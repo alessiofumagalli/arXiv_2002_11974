@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     ## ---- Simplex grid ---- #
     mesh_size = np.power(2., -4)
-    file_name = geometry + "case2_network.csv"
+    file_name = geometry + "case1_network.csv"
     gb = create_gb(file_name, mesh_size)
     main("delaunay", gb, coarse=False)
 
