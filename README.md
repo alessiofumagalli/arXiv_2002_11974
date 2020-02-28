@@ -1,7 +1,7 @@
 # Performances of the mixed virtual element method on complex grids for underground flow
 
 Source code and examples for the paper<br>
-"*Performances of the mixed virtual element method on complex grids for underground flow*" by Alessio Fumagalli, Anna Scotti, Luca Formaggia. See [arXiv pre-print](https://arxiv.org/abs/????). FIX ARXIV
+"*Performances of the mixed virtual element method on complex grids for underground flow*" by Alessio Fumagalli, Anna Scotti, Luca Formaggia. See [arXiv pre-print](https://arxiv.org/abs/2002.11974).
 
 
 # Reproduce results from paper
@@ -22,8 +22,7 @@ with respect to the variation of the permeability field. Our numerical findings 
 by two test cases that cover several critical aspects.
 
 # Citing
-If you use this work in your research, we ask you to cite the following publication [arXiv:1907.12514 [math.NA]](https://arxiv.org/abs/1907.12514). FIX ARXIV
-
+If you use this work in your research, we ask you to cite the following publication [arXiv:2002.11974 [math.NA]](https://arxiv.org/abs/2002.11974).
 
 # PorePy version
 If you want to run the code you need to install [PorePy](https://github.com/pmgbergen/porepy) and revert to commit f82a91c1b6ef83b6954ecd26723f8b7443880891 FIX GIT COMMIT <br>
