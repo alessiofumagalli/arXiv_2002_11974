@@ -25,7 +25,7 @@ by two test cases that cover several critical aspects.
 If you use this work in your research, we ask you to cite the following publication [arXiv:2002.11974 [math.NA]](https://arxiv.org/abs/2002.11974).
 
 # PorePy version
-If you want to run the code you need to install [PorePy](https://github.com/pmgbergen/porepy) and revert to commit f82a91c1b6ef83b6954ecd26723f8b7443880891 FIX GIT COMMIT <br>
+If you want to run the code you need to install [PorePy](https://github.com/pmgbergen/porepy) and revert to commit 79b763dbfc5691d8ae7fc1c69be9765bab708c7f <br>
 Newer versions of PorePy may not be compatible with this repository.
 
 # License
